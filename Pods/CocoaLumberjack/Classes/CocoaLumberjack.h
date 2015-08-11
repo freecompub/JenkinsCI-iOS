@@ -1,6 +1,6 @@
 // Software License Agreement (BSD License)
 //
-// Copyright (c) 2010-2014, Deusty, LLC
+// Copyright (c) 2010-2015, Deusty, LLC
 // All rights reserved.
 //
 // Redistribution and use of this software in source and binary forms,
@@ -34,7 +34,7 @@
  * Define your logging level in your implementation file:
  *
  * // Log levels: off, error, warn, info, verbose
- * static const int ddLogLevel = LOG_LEVEL_VERBOSE;
+ * static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
  *
  * Step 2 [3rd party frameworks]:
  *
@@ -46,7 +46,7 @@
  * Define your logging level in your implementation file:
  *
  * // Log levels: off, error, warn, info, verbose
- * static const int myLibLogLevel = LOG_LEVEL_VERBOSE;
+ * static const DDLogLevel myLibLogLevel = DDLogLevelVerbose;
  *
  * Step 3:
  * Replace your NSLog statements with DDLog statements according to the severity of the message.
@@ -57,11 +57,25 @@
  * This means you can pass it multiple variables just like NSLog.
  **/
 
+#import <Foundation/Foundation.h>
+
+// Disable legacy macros
+#ifndef DD_LEGACY_MACROS
+    #define DD_LEGACY_MACROS 0
+#endif
+
+// Core
 #import "DDLog.h"
+
+// Main macros
 #import "DDLogMacros.h"
 #import "DDAssertMacros.h"
+
+// Capture ASL
+#import "DDASLLogCapture.h"
 
 // Loggers
 #import "DDTTYLogger.h"
 #import "DDASLLogger.h"
 #import "DDFileLogger.h"
+

@@ -1,6 +1,6 @@
 // Software License Agreement (BSD License)
 //
-// Copyright (c) 2010-2014, Deusty, LLC
+// Copyright (c) 2010-2015, Deusty, LLC
 // All rights reserved.
 //
 // Redistribution and use of this software in source and binary forms,
@@ -19,6 +19,10 @@
 #if !__has_feature(objc_arc)
 #error This file must be compiled with ARC. Use -fobjc-arc flag (or convert project to ARC).
 #endif
+
+const char* const kDDASLKeyDDLog = "DDLog";
+
+const char* const kDDASLDDLogValue = "1";
 
 static DDASLLogger *sharedInstance;
 
@@ -41,7 +45,7 @@ static DDASLLogger *sharedInstance;
     return sharedInstance;
 }
 
-- (id)init {
+- (instancetype)init {
     if (sharedInstance != nil) {
         return nil;
     }
@@ -57,29 +61,25 @@ static DDASLLogger *sharedInstance;
 }
 
 - (void)logMessage:(DDLogMessage *)logMessage {
-    // Skip captured log messages.
-    if (strcmp(logMessage->file, "DDASLLogCapture") == 0) {
+    // Skip captured log messages
+    if ([logMessage->_fileName isEqualToString:@"DDASLLogCapture"]) {
         return;
     }
 
-    NSString *logMsg = logMessage->logMsg;
+    NSString * message = _logFormatter ? [_logFormatter formatLogMessage:logMessage] : logMessage->_message;
 
-    if (formatter) {
-        logMsg = [formatter formatLogMessage:logMessage];
-    }
-
-    if (logMsg) {
-        const char *msg = [logMsg UTF8String];
+    if (logMessage) {
+        const char *msg = [message UTF8String];
 
         size_t aslLogLevel;
-        switch (logMessage->logFlag) {
+        switch (logMessage->_flag) {
             // Note: By default ASL will filter anything above level 5 (Notice).
             // So our mappings shouldn't go above that level.
-            case LOG_FLAG_ERROR     : aslLogLevel = ASL_LEVEL_CRIT;     break;
-            case LOG_FLAG_WARN      : aslLogLevel = ASL_LEVEL_ERR;      break;
-            case LOG_FLAG_INFO      : aslLogLevel = ASL_LEVEL_WARNING;  break; // Regular NSLog's level
-            case LOG_FLAG_DEBUG     :
-            case LOG_FLAG_VERBOSE   :
+            case DDLogFlagError     : aslLogLevel = ASL_LEVEL_CRIT;     break;
+            case DDLogFlagWarning   : aslLogLevel = ASL_LEVEL_ERR;      break;
+            case DDLogFlagInfo      : aslLogLevel = ASL_LEVEL_WARNING;  break; // Regular NSLog's level
+            case DDLogFlagDebug     :
+            case DDLogFlagVerbose   :
             default                 : aslLogLevel = ASL_LEVEL_NOTICE;   break;
         }
 
@@ -89,7 +89,11 @@ static DDASLLogger *sharedInstance;
         uid_t const readUID = geteuid();
 
         char readUIDString[16];
+#ifndef NS_BLOCK_ASSERTIONS
         int l = snprintf(readUIDString, sizeof(readUIDString), "%d", readUID);
+#else
+        snprintf(readUIDString, sizeof(readUIDString), "%d", readUID);
+#endif
 
         NSAssert(l < sizeof(readUIDString),
                  @"Formatted euid is too long.");
@@ -100,7 +104,8 @@ static DDASLLogger *sharedInstance;
         if (m != NULL) {
             if (asl_set(m, ASL_KEY_LEVEL, level_strings[aslLogLevel]) == 0 &&
                 asl_set(m, ASL_KEY_MSG, msg) == 0 &&
-                asl_set(m, ASL_KEY_READ_UID, readUIDString) == 0) {
+                asl_set(m, ASL_KEY_READ_UID, readUIDString) == 0 &&
+                asl_set(m, kDDASLKeyDDLog, kDDASLDDLogValue) == 0) {
                 asl_send(_client, m);
             }
             asl_free(m);
